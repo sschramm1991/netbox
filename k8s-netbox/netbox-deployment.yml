@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: netbox
+  name: netbox
+  namespace: netbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netbox
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: netbox
+        project: netbox
+    spec:
+      containers:
+      - image: lscr.io/linuxserver/netbox
+        name: netbox
+        envFrom:
+          - configMapRef:
+              name: netbox
+          - secretRef:
+              name: netbox
+        ports:
+        - containerPort: 8000
+        lifecycle:
+          postStart:
+            exec:
+              command:
+                - "/bin/bash"
+                - "-c"
+                - |
+                  apk add --update openldap-dev build-base python3-dev
+                  pip install --no-cache-dir python-ldap django-auth-ldap extras netbox-otp-plugin
+                  source /lsiopy/bin/activate && python -m pip install extras netbox-otp-plugin
+                  /app/netbox/netbox/manage.py migrate
+                 # cd /app/netbox/netbox/ && /usr/sbin/uwsgi uwsgi.ini &
+        resources: {}
+        volumeMounts:
+          - name:  netbox-config
+            mountPath:  /app/netbox/netbox/netbox/configuration.py
+            subPath: configuration.py
+      volumes:
+        - name: netbox-config
+          configMap:
+            name: netbox-config
+status: {}
